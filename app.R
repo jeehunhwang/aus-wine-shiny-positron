@@ -17,6 +17,10 @@ varietals <- names(aus_wine)[-1]
 max_date <- max(aus_wine$Month)
 default_train_cutoff <- max_date - 12
 
+# Create month sequence for slider
+month_dates <- seq(from = yearmonth("1980 Jan"), to = yearmonth("1994 Dec"), by = 1)
+month_labels <- format(as.Date(month_dates), "%b %Y")
+
 # UI
 ui <- page_navbar(
     title = "Australian Wine Sales Forecasting",
@@ -31,13 +35,19 @@ ui <- page_navbar(
                 checkboxGroupInput("varietals", "Select Varietals",
                                   choices = varietals,
                                   selected = varietals),
-                dateInput("train_cutoff", "Training Cutoff Date",
-                         value = as_date(default_train_cutoff),
-                         min = as_date(min(aus_wine$Month)),
-                         max = as_date(max(aus_wine$Month))),
-                dateInput("forecast_end", "Forecast End Date",
-                         value = as_date(max_date),
-                         min = as_date(min(aus_wine$Month)))
+                tags$div(
+                    style = "padding: 10px 0;",
+                    sliderInput("date_range", "Select Date Range",
+                               min = 1,
+                               max = length(month_dates),
+                               value = c(
+                                   which(month_dates == default_train_cutoff),
+                                   which(month_dates == max_date)
+                               ),
+                               step = 1,
+                               ticks = FALSE)
+                ),
+                uiOutput("date_labels")
             ),
             plotOutput("viz_plot", height = "600px")
         )
@@ -74,8 +84,8 @@ ui <- page_navbar(
             sidebar = sidebar(
                 title = "Forecast Options",
                 checkboxGroupInput("forecast_models", "Select Models",
-                                choices = c("tslm", "ets", "arima"),
-                                selected = c("tslm", "ets", "arima"))
+                                  choices = c("tslm", "ets", "arima"),
+                                  selected = c("tslm", "ets", "arima"))
             ),
             layout_columns(
                 col_widths = c(6, 6),
@@ -89,11 +99,55 @@ ui <- page_navbar(
                 )
             )
         )
+    ),
+    
+    # Custom JavaScript to format slider
+    tags$head(
+        tags$script(HTML(sprintf("
+            $(document).ready(function() {
+                var monthLabels = %s;
+                
+                setTimeout(function() {
+                    $('#date_range').data('ionRangeSlider').update({
+                        prettify: function(num) {
+                            return monthLabels[num - 1];
+                        },
+                        grid: true,
+                        grid_num: 14,
+                        force_edges: true
+                    });
+                }, 100);
+            });
+        ", jsonlite::toJSON(month_labels))))
     )
 )
 
 # Server
 server <- function(input, output, session) {
+    
+    # Reactive: get selected dates from slider
+    train_cutoff <- reactive({
+        month_dates[input$date_range[1]]
+    })
+    
+    forecast_end <- reactive({
+        month_dates[input$date_range[2]]
+    })
+    
+    # Output: Date labels
+    output$date_labels <- renderUI({
+        div(
+            style = "margin-top: 10px;",
+            tags$p(
+                tags$span(style = "color: red; font-weight: bold;", "● Training Cutoff: "),
+                format(as.Date(train_cutoff()), "%b %Y")
+            ),
+            tags$p(
+                tags$span(style = "color: blue; font-weight: bold;", "● Forecast End: "),
+                format(as.Date(forecast_end()), "%b %Y")
+            )
+        )
+    })
     
     # Reactive: filtered data
     filtered_data <- reactive({
@@ -108,7 +162,7 @@ server <- function(input, output, session) {
     # Reactive: training data
     train_data <- reactive({
         filtered_data() |> 
-            filter(Month < yearmonth(input$train_cutoff))
+            filter(Month < train_cutoff())
     })
     
     # Reactive: fitted models (all three models)
@@ -139,9 +193,7 @@ server <- function(input, output, session) {
     forecasts <- reactive({
         req(input$forecast_models)
         
-        forecast_end <- yearmonth(input$forecast_end)
-        train_end <- yearmonth(input$train_cutoff)
-        h_months <- as.numeric(forecast_end - train_end)
+        h_months <- as.numeric(forecast_end() - train_cutoff())
         
         fitted_models_forecast() |>
             forecast(h = paste(h_months, "months"))
@@ -149,12 +201,12 @@ server <- function(input, output, session) {
     
     # Output: Visualization plot
     output$viz_plot <- renderPlot({
-        train_cutoff_date <- yearmonth(input$train_cutoff)
-        
         filtered_data() |> 
             autoplot(Sales) +
-            geom_vline(xintercept = as_date(train_cutoff_date), 
-                      color = "red", linetype = "dashed") +
+            geom_vline(xintercept = as_date(train_cutoff()), 
+                      color = "red", linetype = "dashed", linewidth = 1) +
+            geom_vline(xintercept = as_date(forecast_end()), 
+                      color = "blue", linetype = "dashed", linewidth = 1) +
             facet_wrap(~ Varietal, ncol = 1, scales = "free_y") +
             labs(title = "Australian Wine Sales",
                  y = "Sales") +
@@ -181,20 +233,14 @@ server <- function(input, output, session) {
     
     # Output: Forecast accuracy
     output$forecast_accuracy_table <- render_gt({
-    req(input$forecast_models)
-
-    train_cutoff <- yearmonth(input$train_cutoff)
-
-    # Validation dataset = months AFTER training cutoff
-    val_data <- filtered_data() |>
-        filter(Month >= train_cutoff)
-
-    forecasts() |>
-        accuracy(val_data) |>
-        select(Varietal, .model, RMSE, MAE, MAPE) |>
-        arrange(Varietal, .model) |>
-        gt() |>
-        fmt_number(decimals = 2)
+        req(input$forecast_models)
+        
+        forecasts() |>
+            accuracy(filtered_data()) |>
+            select(Varietal, .model, RMSE, MAE, MAPE) |>
+            arrange(.model, RMSE) |>
+            gt() |> 
+            fmt_number(decimals = 2)
     })
     
     # Output: Forecast plot
@@ -204,8 +250,8 @@ server <- function(input, output, session) {
         forecasts() |>
             autoplot(train_data()) +
             labs(title = "Australian Wine Sales Forecasts",
-                y = "Sales",
-                x = "Year") +
+                 y = "Sales",
+                 x = "Year") +
             facet_wrap(~ Varietal, ncol = 1, scales = "free_y") +
             theme(axis.text.x = element_text(angle = 45, hjust = 1))
     })
