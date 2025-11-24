@@ -3905,6 +3905,30 @@
         "Archs": "x64"
       }
     },
+    "urca": {
+      "Source": "CRAN",
+      "Repository": "https://cran.rstudio.com",
+      "description": {
+        "Package": "urca",
+        "Version": "1.3-4",
+        "Date": "2024-05-25",
+        "Title": "Unit Root and Cointegration Tests for Time Series Data",
+        "Authors@R": "c(person(\"Bernhard\", \"Pfaff\", email = \"bernhard@pfaffikus.de\", role = c(\"aut\", \"cre\")), person(\"Eric\", \"Zivot\",email = \"ezivot@u.washington.edu\", role = \"ctb\"), person(\"Matthieu\", \"Stigler\", role = \"ctb\"))",
+        "Depends": "R (>= 2.0.0), methods",
+        "Imports": "nlme, graphics, stats",
+        "LazyLoad": "yes",
+        "Description": "Unit root and cointegration tests encountered in applied \n econometric analysis are implemented.",
+        "License": "GPL (>= 2)",
+        "NeedsCompilation": "yes",
+        "Packaged": "2024-05-25 16:28:23 UTC; bp",
+        "Author": "Bernhard Pfaff [aut, cre],\n  Eric Zivot [ctb],\n  Matthieu Stigler [ctb]",
+        "Maintainer": "Bernhard Pfaff <bernhard@pfaffikus.de>",
+        "Repository": "CRAN",
+        "Date/Publication": "2024-05-27 12:20:03 UTC",
+        "Built": "R 4.4.3; x86_64-w64-mingw32; 2025-11-15 14:16:32 UTC; windows",
+        "Archs": "x64"
+      }
+    },
     "utf8": {
       "Source": "CRAN",
       "Repository": "https://cran.rstudio.com",
@@ -4222,7 +4246,7 @@
   },
   "files": {
     "app.R": {
-      "checksum": "f272ba0aa34a1c727d9fce93166573d9"
+      "checksum": "7c27454d8c740bc97f2df8e32abfcd21"
     },
     "aus-wine-shiny.html": {
       "checksum": "c9de87c9227dc77caa70ad68f9cedab3"
