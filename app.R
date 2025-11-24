@@ -4,6 +4,7 @@ library(fpp3)
 library(gt)
 library(tidyverse)
 library(here)
+library(urca)
 
 # Data preparation
 aus_wine <- read_csv(here::here("AustralianWines.csv"), na = "*",
@@ -73,14 +74,20 @@ ui <- page_navbar(
             sidebar = sidebar(
                 title = "Forecast Options",
                 checkboxGroupInput("forecast_models", "Select Models",
-                                  choices = c("tslm", "ets", "arima"),
-                                  selected = c("tslm", "ets", "arima"))
+                                choices = c("tslm", "ets", "arima"),
+                                selected = c("tslm", "ets", "arima"))
             ),
-            h4("Forecast Accuracy"),
-            gt_output("forecast_accuracy_table"),
-            br(),
-            h4("Forecast Visualization"),
-            plotOutput("forecast_plot", height = "600px")
+            layout_columns(
+                col_widths = c(6, 6),
+                card(
+                    card_header("Forecast Accuracy"),
+                    gt_output("forecast_accuracy_table")
+                ),
+                card(
+                    card_header("Forecast Visualization"),
+                    plotOutput("forecast_plot", height = "600px")
+                )
+            )
         )
     )
 )
@@ -174,14 +181,20 @@ server <- function(input, output, session) {
     
     # Output: Forecast accuracy
     output$forecast_accuracy_table <- render_gt({
-        req(input$forecast_models)
-        
-        forecasts() |>
-            accuracy(filtered_data()) |>
-            select(Varietal, .model, RMSE, MAE, MAPE) |>
-            arrange(.model, RMSE) |>
-            gt() |> 
-            fmt_number(decimals = 2)
+    req(input$forecast_models)
+
+    train_cutoff <- yearmonth(input$train_cutoff)
+
+    # Validation dataset = months AFTER training cutoff
+    val_data <- filtered_data() |>
+        filter(Month >= train_cutoff)
+
+    forecasts() |>
+        accuracy(val_data) |>
+        select(Varietal, .model, RMSE, MAE, MAPE) |>
+        arrange(Varietal, .model) |>
+        gt() |>
+        fmt_number(decimals = 2)
     })
     
     # Output: Forecast plot
@@ -191,9 +204,9 @@ server <- function(input, output, session) {
         forecasts() |>
             autoplot(train_data()) +
             labs(title = "Australian Wine Sales Forecasts",
-                 y = "Sales",
-                 x = "Year") +
-            facet_wrap(~ Varietal, scales = "free_y") +
+                y = "Sales",
+                x = "Year") +
+            facet_wrap(~ Varietal, ncol = 1, scales = "free_y") +
             theme(axis.text.x = element_text(angle = 45, hjust = 1))
     })
 }
