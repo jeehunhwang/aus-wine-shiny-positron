@@ -258,10 +258,18 @@ server <- function(input, output, session) {
         forecasts() |>
             autoplot(train_data()) +
             labs(title = "Australian Wine Sales Forecasts",
-                 y = "Sales",
-                 x = "Year") +
+                y = "Sales",
+                x = "Year") +
             facet_wrap(~ Varietal, ncol = 1, scales = "free_y") +
-            theme(axis.text.x = element_text(angle = 45, hjust = 1))
+            theme(
+                axis.text.x = element_text(angle = 45, hjust = 1, size = 12),
+                axis.text.y = element_text(size = 12),
+                axis.title = element_text(size = 14),
+                strip.text = element_text(size = 14, face = "bold"),
+                legend.text = element_text(size = 12),
+                legend.title = element_text(size = 13),
+                plot.title = element_text(size = 16)
+            )
     })
 }
 
