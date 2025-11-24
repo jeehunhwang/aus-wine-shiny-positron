@@ -204,13 +204,21 @@ server <- function(input, output, session) {
         filtered_data() |> 
             autoplot(Sales) +
             geom_vline(xintercept = as_date(train_cutoff()), 
-                      color = "red", linetype = "dashed", linewidth = 1) +
+                    color = "red", linetype = "dashed", linewidth = 1) +
             geom_vline(xintercept = as_date(forecast_end()), 
-                      color = "blue", linetype = "dashed", linewidth = 1) +
+                    color = "blue", linetype = "dashed", linewidth = 1) +
             facet_wrap(~ Varietal, ncol = 1, scales = "free_y") +
             labs(title = "Australian Wine Sales",
-                 y = "Sales") +
-            theme(axis.text.x = element_text(angle = 45, hjust = 1))
+                y = "Sales") +
+            theme(
+                axis.text.x = element_text(angle = 45, hjust = 1, size = 12),
+                axis.text.y = element_text(size = 12),
+                axis.title = element_text(size = 14),
+                strip.text = element_text(size = 14, face = "bold"),
+                legend.text = element_text(size = 12),
+                legend.title = element_text(size = 13),
+                plot.title = element_text(size = 16)
+            )
     })
     
     # Output: Training accuracy
