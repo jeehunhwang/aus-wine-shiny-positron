@@ -208,8 +208,10 @@ server <- function(input, output, session) {
             geom_vline(xintercept = as_date(forecast_end()), 
                       color = "blue", linetype = "dashed", linewidth = 1) +
             facet_wrap(~ Varietal, ncol = 1, scales = "free_y") +
+            scale_x_yearmonth(date_breaks = "1 year", date_labels = "%Y") +
             labs(title = "Australian Wine Sales",
-                 y = "Sales") +
+                 y = "Sales",
+                 x = "Year") +
             theme(
                 axis.text.x = element_text(angle = 45, hjust = 1, size = 12),
                 axis.text.y = element_text(size = 12),
@@ -257,10 +259,11 @@ server <- function(input, output, session) {
         
         forecasts() |>
             autoplot(train_data()) +
+            facet_wrap(~ Varietal, ncol = 1, scales = "free_y") +
+            scale_x_yearmonth(date_breaks = "1 year", date_labels = "%Y") +
             labs(title = "Australian Wine Sales Forecasts",
                  y = "Sales",
                  x = "Year") +
-            facet_wrap(~ Varietal, ncol = 1, scales = "free_y") +
             theme(
                 axis.text.x = element_text(angle = 45, hjust = 1, size = 12),
                 axis.text.y = element_text(size = 12),
