@@ -59,6 +59,9 @@ ui <- page_navbar(
         layout_sidebar(
             sidebar = sidebar(
                 title = "Model Selection",
+                checkboxGroupInput("training_varietals", "Select Varietals",
+                                  choices = varietals,
+                                  selected = varietals),
                 checkboxGroupInput("training_models", "Select Models",
                                   choices = c("tslm", "ets", "arima"),
                                   selected = c("tslm", "ets", "arima"))
@@ -83,6 +86,9 @@ ui <- page_navbar(
         layout_sidebar(
             sidebar = sidebar(
                 title = "Forecast Options",
+                checkboxGroupInput("forecast_varietals", "Select Varietals",
+                                  choices = varietals,
+                                  selected = varietals),
                 checkboxGroupInput("forecast_models", "Select Models",
                                   choices = c("tslm", "ets", "arima"),
                                   selected = c("tslm", "ets", "arima"))
@@ -149,7 +155,7 @@ server <- function(input, output, session) {
         )
     })
     
-    # Reactive: filtered data
+    # Reactive: filtered data (for visualization tab)
     filtered_data <- reactive({
         req(input$varietals)
         
@@ -159,15 +165,51 @@ server <- function(input, output, session) {
             as_tsibble(index = Month, key = Varietal)
     })
     
-    # Reactive: training data
+    # Reactive: training data for model building tab
     train_data <- reactive({
-        filtered_data() |> 
+        req(input$training_varietals)
+        
+        aus_wine |> 
+            select(Month, all_of(input$training_varietals)) |> 
+            pivot_longer(cols = -Month, names_to = 'Varietal', values_to = 'Sales') |>
+            as_tsibble(index = Month, key = Varietal) |> 
             filter(Month < train_cutoff())
     })
     
-    # Reactive: fitted models (all three models)
+    # Reactive: training data for forecast tab
+    train_data_forecast <- reactive({
+        req(input$forecast_varietals)
+        
+        aus_wine |> 
+            select(Month, all_of(input$forecast_varietals)) |> 
+            pivot_longer(cols = -Month, names_to = 'Varietal', values_to = 'Sales') |>
+            as_tsibble(index = Month, key = Varietal) |> 
+            filter(Month < train_cutoff())
+    })
+    
+    # Reactive: full data for forecast accuracy
+    filtered_data_forecast <- reactive({
+        req(input$forecast_varietals)
+        
+        aus_wine |> 
+            select(Month, all_of(input$forecast_varietals)) |> 
+            pivot_longer(cols = -Month, names_to = 'Varietal', values_to = 'Sales') |>
+            as_tsibble(index = Month, key = Varietal)
+    })
+    
+    # Reactive: fitted models (all three models) for model building tab
     fitted_models_all <- reactive({
         train_data() |>
+            model(
+                tslm = TSLM(Sales ~ trend() + season()),
+                ets = ETS(Sales),
+                arima = ARIMA(Sales)
+            )
+    })
+    
+    # Reactive: fitted models for forecast tab
+    fitted_models_all_forecast <- reactive({
+        train_data_forecast() |>
             model(
                 tslm = TSLM(Sales ~ trend() + season()),
                 ets = ETS(Sales),
@@ -185,7 +227,7 @@ server <- function(input, output, session) {
     # Reactive: selected models for forecast
     fitted_models_forecast <- reactive({
         req(input$forecast_models)
-        fitted_models_all() |>
+        fitted_models_all_forecast() |>
             select(all_of(input$forecast_models))
     })
     
@@ -246,7 +288,7 @@ server <- function(input, output, session) {
         req(input$forecast_models)
         
         forecasts() |>
-            accuracy(filtered_data()) |>
+            accuracy(filtered_data_forecast()) |>
             select(Varietal, .model, RMSE, MAE, MAPE) |>
             arrange(.model, RMSE) |>
             gt() |> 
@@ -258,7 +300,7 @@ server <- function(input, output, session) {
         req(input$forecast_models)
         
         forecasts() |>
-            autoplot(train_data()) +
+            autoplot(train_data_forecast()) +
             facet_wrap(~ Varietal, ncol = 1, scales = "free_y") +
             scale_x_yearmonth(date_breaks = "1 year", date_labels = "%Y") +
             labs(title = "Australian Wine Sales Forecasts",
